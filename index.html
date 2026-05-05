@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arcade Leaderboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:       #3828b0;
+      --bg-card:  #1e1a70;
+      --bg-card2: #16126a;
+      --p900:     #100d55;
+      --p700:     #2820a0;
+      --p500:     #4540c8;
+      --p400:     #7875d8;
+      --p300:     #b0aee8;
+      --neon:     #4dd8f8;
+      --cyan:     #00e5ff;
+      --gold:     #fbbf24;
+      --goldg:    rgba(251,191,36,0.2);
+      --silver:   #c8daf0;
+      --bronze:   #f97316;
+      --white:    #ffffff;
+      --muted:    rgba(120,117,216,0.5);
+      --border:   rgba(77,216,248,0.35);
+      --border-h: rgba(77,216,248,0.75);
+      --row:      #1a1a6e;   /* dark navy pill interiors */
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Outfit', sans-serif;
+      background:
+        repeating-linear-gradient(0deg, rgba(255,255,255,.032) 0px, rgba(255,255,255,.032) 1px, transparent 1px, transparent 9px),
+        linear-gradient(180deg, #4535c8 0%, #3828b0 50%, #2d1fa0 100%);
+      color: var(--white);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Ambient purple glow */
+    body::after {
+      content: '';
+      position: fixed; inset: 0;
+      background:
+        radial-gradient(ellipse 700px 350px at 50% 0%,   rgba(120,100,255,.15) 0%, transparent 70%),
+        radial-gradient(ellipse 600px 400px at 50% 100%, rgba(10,5,80,.35)    0%, transparent 70%);
+      pointer-events: none; z-index: 0;
+    }
+
+    /* No scanlines for this theme */
+    body::before { display: none; }
+
+    .wrap {
+      max-width: 820px; margin: 20px auto 20px; padding: 8px 20px 32px;
+      position: relative; z-index: 1;
+      background: rgba(40,28,145,.55);
+      border: 3px solid var(--neon);
+      border-radius: 28px;
+      box-shadow: 0 0 0 6px rgba(77,216,248,.1), 0 24px 64px rgba(0,0,0,.45);
+    }
+
+    /* ── HEADER ── */
+    .hdr { text-align: center; padding: 44px 0 28px; }
+    .hdr-title {
+      font-family: 'Press Start 2P', monospace;
+      font-size: clamp(17px, 3.8vw, 26px);
+      color: var(--white);
+      text-shadow: 0 0 18px var(--neon), 0 0 40px rgba(77,216,248,.5);
+      line-height: 1.55; letter-spacing: .04em; margin-bottom: 10px;
+    }
+    .hdr-sub { font-size: 13px; color: var(--p400); letter-spacing: .12em; text-transform: uppercase; }
+
+    /* ── HERO ── */
+    .hero {
+      background: linear-gradient(135deg, var(--bg-card2) 0%, var(--p900) 100%);
+      border: 1px solid rgba(77,216,248,.4);
+      border-radius: 20px; padding: 24px 28px; margin-bottom: 20px;
+      position: relative; overflow: hidden;
+    }
+    .hero::after {
+      content: '';
+      position: absolute; top: -50px; right: -50px;
+      width: 220px; height: 220px;
+      background: radial-gradient(circle, rgba(77,216,248,.12) 0%, transparent 65%);
+      pointer-events: none;
+    }
+    .hero-live {
+      font-family: 'Press Start 2P', monospace; font-size: 8px;
+      color: var(--neon); letter-spacing: .14em; margin-bottom: 12px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .hero-dot {
+      width: 7px; height: 7px; background: var(--neon); border-radius: 50%;
+      animation: blink 1.4s ease-in-out infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.35;transform:scale(.8)} }
+    .hero-game {
+      font-family: 'Press Start 2P', monospace;
+      font-size: clamp(14px, 3.2vw, 21px);
+      color: var(--gold);
+      text-shadow: 0 0 18px rgba(251,191,36,.6);
+      line-height: 1.6; margin-bottom: 14px;
+    }
+    .hero-meta { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+    .hero-dates { font-size: 13px; color: var(--p300); }
+    .hero-pill {
+      font-size: 11px; font-weight: 600; padding: 3px 12px;
+      border-radius: 999px;
+      background: rgba(139,92,246,.18); border: 1px solid rgba(139,92,246,.38);
+      color: var(--p300);
+    }
+
+    /* ── WEEK NAV ── */
+    .wnav {
+      display: flex; align-items: center; justify-content: center;
+      gap: 12px; margin-bottom: 24px;
+    }
+    .wnav-btn {
+      background: rgba(139,92,246,.13); border: 1px solid var(--border);
+      color: var(--p300); padding: 8px 16px; border-radius: 9px;
+      font-family: 'Outfit', sans-serif; font-size: 14px; cursor: pointer;
+      transition: background .18s, border-color .18s;
+    }
+    .wnav-btn:hover:not(:disabled) { background: rgba(139,92,246,.28); border-color: var(--border-h); }
+    .wnav-btn:disabled { opacity: .3; cursor: default; }
+    .wnav-info { text-align: center; }
+    .wnav-key { font-family: 'Press Start 2P', monospace; font-size: 8px; color: var(--p300); }
+    .wnav-dates { font-size: 12px; color: var(--p400); margin-top: 4px; }
+    .viewing-banner {
+      text-align: center; font-size: 12px; font-weight: 600;
+      color: var(--p400); letter-spacing: .08em; text-transform: uppercase;
+      margin-bottom: 16px; display: none;
+    }
+    .viewing-banner.show { display: block; }
+
+    /* ── SECTION HEADER ── */
+    .sec-hdr { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+    .sec-title { font-family: 'Press Start 2P', monospace; font-size: 9px; color: var(--p300); letter-spacing: .1em; white-space: nowrap; }
+    .sec-line { flex: 1; height: 1px; background: linear-gradient(90deg, rgba(139,92,246,.4), transparent); }
+
+    /* ── PODIUM ── */
+    .podium-wrap { margin-bottom: 28px; }
+    .podium {
+      display: flex; align-items: flex-end; justify-content: center; gap: 8px;
+    }
+    .pod-slot { display: flex; flex-direction: column; align-items: center; }
+    .pod-card { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-bottom: 8px; position: relative; }
+    .pod-del {
+      position: absolute; top: -6px; right: -6px;
+      background: rgba(0,0,0,.5); border: 1px solid rgba(248,113,113,.4);
+      color: rgba(248,113,113,.6); border-radius: 50%;
+      width: 18px; height: 18px; font-size: 11px; line-height: 18px;
+      text-align: center; cursor: pointer; display: none;
+      transition: color .15s, border-color .15s;
+    }
+    .pod-card:hover .pod-del { display: block; }
+    .pod-del:hover { color: #f87171; border-color: #f87171; }
+
+    .pod-avatar {
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; position: relative; font-size: 18px;
+      width: 54px; height: 54px;
+    }
+    .pod-avatar.gold {
+      background: linear-gradient(135deg,#fde68a,#f59e0b);
+      color: #78350f; box-shadow: 0 0 22px rgba(251,191,36,.55);
+      width: 64px; height: 64px; font-size: 22px;
+    }
+    .pod-avatar.silver {
+      background: linear-gradient(135deg,#e2e8f0,#94a3b8);
+      color: #1e293b; box-shadow: 0 0 14px rgba(148,163,184,.3);
+    }
+    .pod-avatar.bronze {
+      background: linear-gradient(135deg,#fdba74,#ea580c);
+      color: #fff7ed; box-shadow: 0 0 14px rgba(249,115,22,.3);
+    }
+    .pod-crown { position: absolute; top: -18px; font-size: 17px; }
+    .pod-name {
+      font-size: 13px; font-weight: 600; text-align: center;
+      max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .pod-score { font-family: 'Press Start 2P', monospace; font-size: 7px; color: var(--p400); }
+
+    .pod-block {
+      width: 94px; border-radius: 12px 12px 0 0;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Press Start 2P', monospace; font-size: 16px;
+      position: relative; overflow: hidden;
+    }
+    .pod-block::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    }
+    .pod-block.gold {
+      height: 80px;
+      background: linear-gradient(180deg,rgba(251,191,36,.22) 0%,rgba(245,158,11,.06) 100%);
+      border: 1px solid rgba(251,191,36,.38); border-bottom: none; color: var(--gold);
+    }
+    .pod-block.gold::before  { background: var(--gold); box-shadow: 0 0 8px var(--gold); }
+    .pod-block.silver {
+      height: 60px;
+      background: linear-gradient(180deg,rgba(148,163,184,.18) 0%,rgba(148,163,184,.04) 100%);
+      border: 1px solid rgba(148,163,184,.28); border-bottom: none; color: var(--silver);
+    }
+    .pod-block.silver::before { background: var(--silver); }
+    .pod-block.bronze {
+      height: 44px;
+      background: linear-gradient(180deg,rgba(249,115,22,.18) 0%,rgba(249,115,22,.04) 100%);
+      border: 1px solid rgba(249,115,22,.28); border-bottom: none; color: var(--bronze);
+    }
+    .pod-block.bronze::before { background: var(--bronze); }
+
+    .pod-empty { opacity: .3; font-size: 11px; color: var(--p400); text-align: center; width: 94px; padding-bottom: 6px; }
+
+    /* ── LEADERBOARD LIST ── */
+    .lb-wrap { margin-bottom: 28px; }
+    .score-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 14px;
+      background: linear-gradient(135deg, #f5aa28 0%, #e07515 100%);
+      border: 2px solid rgba(255,200,80,.45);
+      border-radius: 40px; margin-bottom: 10px;
+      box-shadow: 0 3px 14px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.25);
+      transition: transform .15s, box-shadow .15s;
+    }
+    .score-row:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,.35); }
+    .rank-lbl {
+      font-family: 'Press Start 2P', monospace; font-size: 9px;
+      color: #fff; min-width: 30px; text-align: center;
+      text-shadow: 0 1px 3px rgba(0,0,0,.35);
+    }
+    .init-circle {
+      width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
+      background: var(--row); border: 2px solid rgba(255,255,255,.2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700; color: #fff;
+    }
+    .p-name { flex: 1; font-size: 15px; font-weight: 700; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.2); }
+    .p-score {
+      font-family: 'Press Start 2P', monospace; font-size: 8px; color: #fff;
+      background: var(--row); border: 1px solid rgba(255,255,255,.15);
+      padding: 6px 12px; border-radius: 20px;
+      box-shadow: inset 0 1px 3px rgba(0,0,0,.3);
+    }
+    .btn-del {
+      background: transparent; border: none; color: rgba(255,255,255,.45);
+      cursor: pointer; font-size: 18px; padding: 2px 4px; line-height: 1;
+      transition: color .15s;
+    }
+    .btn-del:hover { color: #fff; }
+    .empty-state { text-align: center; padding: 44px 20px; color: var(--p400); }
+    .empty-pixel { font-family: 'Press Start 2P', monospace; font-size: 11px; margin-bottom: 10px; }
+
+    /* ── SCHEDULE ── */
+    .sched-wrap { margin-bottom: 30px; }
+    .sched-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(144px, 1fr)); gap: 10px; }
+    .sched-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 14px; padding: 14px; transition: border-color .18s;
+    }
+    .sched-card:hover { border-color: var(--border-h); }
+    .sched-card.now {
+      border-color: rgba(251,191,36,.42);
+      background: linear-gradient(135deg, var(--bg-card2), var(--p900));
+    }
+    .sched-label {
+      font-size: 10px; font-weight: 700; letter-spacing: .1em;
+      text-transform: uppercase; color: var(--p400); margin-bottom: 5px;
+    }
+    .sched-card.now .sched-label { color: var(--gold); }
+    .sched-wk { font-family: 'Press Start 2P', monospace; font-size: 6px; color: var(--muted); margin-bottom: 7px; }
+    .sched-game { font-size: 13px; font-weight: 600; color: var(--white); line-height: 1.35; }
+    .sched-card.now .sched-game { color: var(--gold); }
+
+    /* ── MANAGE GAMES ── */
+    .manage-wrap { margin-bottom: 48px; }
+    .collapse-hdr {
+      display: flex; align-items: center; gap: 12px; cursor: pointer;
+      padding: 13px 16px; background: var(--bg-card);
+      border: 1px solid var(--border); border-radius: 12px;
+      transition: border-color .18s; user-select: none;
+    }
+    .collapse-hdr:hover { border-color: var(--border-h); }
+    .collapse-title { font-family: 'Press Start 2P', monospace; font-size: 9px; color: var(--p300); flex: 1; }
+    .collapse-arr { color: var(--p400); font-size: 14px; transition: transform .2s; }
+    .collapse-arr.open { transform: rotate(180deg); }
+    .collapse-body { display: none; }
+    .collapse-body.open { display: block; }
+    .games-list {
+      background: var(--bg-card);
+      border: 1px solid var(--border); border-top: none;
+      border-radius: 0 0 0 0; padding: 8px;
+      max-height: 320px; overflow-y: auto;
+    }
+    .g-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 7px 8px; border-radius: 8px; transition: background .15s;
+    }
+    .g-row:hover { background: rgba(139,92,246,.1); }
+    .g-num { font-family: 'Press Start 2P', monospace; font-size: 7px; color: var(--muted); min-width: 20px; }
+    .g-name { flex: 1; font-size: 13px; }
+    .g-badge {
+      font-size: 9px; font-weight: 700; padding: 2px 9px; border-radius: 999px;
+      background: rgba(251,191,36,.15); border: 1px solid rgba(251,191,36,.32); color: var(--gold);
+    }
+    .g-btns { display: flex; gap: 2px; }
+    .g-btns button {
+      background: transparent; border: none; color: rgba(167,139,250,.38);
+      cursor: pointer; font-size: 13px; padding: 2px 5px; line-height: 1;
+      transition: color .15s;
+    }
+    .g-btns button:hover { color: var(--p300); }
+    .g-btns .g-rm:hover { color: #f87171; }
+    .add-game-row {
+      display: flex; gap: 8px; padding: 10px;
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-top: none; border-radius: 0 0 12px 12px;
+    }
+    input.add-inp {
+      flex: 1; padding: 8px 12px;
+      background: rgba(139,92,246,.1); border: 1px solid rgba(139,92,246,.3);
+      border-radius: 8px; color: var(--white);
+      font-family: 'Outfit', sans-serif; font-size: 14px; outline: none;
+      transition: border-color .18s;
+    }
+    input.add-inp:focus { border-color: var(--p500); }
+    input.add-inp::placeholder { color: rgba(167,139,250,.35); }
+    .btn-add-g {
+      padding: 8px 14px; background: rgba(139,92,246,.18);
+      border: 1px solid rgba(139,92,246,.38); border-radius: 8px;
+      color: var(--p300); font-size: 13px; font-weight: 600; cursor: pointer;
+      white-space: nowrap; font-family: 'Outfit', sans-serif; transition: background .18s;
+    }
+    .btn-add-g:hover { background: rgba(139,92,246,.32); }
+
+    /* ── FAB ── */
+    .fab {
+      position: fixed; bottom: 26px; right: 26px;
+      width: 58px; height: 58px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--p700), var(--neon));
+      border: none; color: #fff; font-size: 28px;
+      cursor: pointer; z-index: 200;
+      box-shadow: 0 4px 22px rgba(35,137,212,.6);
+      display: flex; align-items: center; justify-content: center;
+      transition: transform .18s, box-shadow .18s;
+    }
+    .fab:hover { transform: scale(1.1); box-shadow: 0 8px 32px rgba(35,137,212,.8); }
+
+    /* ── MODAL ── */
+    .overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.82);
+      z-index: 300; display: flex; align-items: center; justify-content: center;
+      padding: 16px; backdrop-filter: blur(5px);
+    }
+    .overlay.hidden { display: none; }
+    .modal {
+      background: var(--bg-card2); border: 1px solid rgba(77,216,248,.45);
+      border-radius: 22px; padding: 30px; width: 100%; max-width: 400px;
+      position: relative;
+    }
+    .modal-title { font-family: 'Press Start 2P', monospace; font-size: 10px; color: var(--neon); margin-bottom: 22px; letter-spacing: .1em; }
+    .modal-close {
+      position: absolute; top: 18px; right: 18px;
+      background: transparent; border: none; color: var(--p400);
+      font-size: 22px; cursor: pointer; line-height: 1;
+    }
+    .modal-close:hover { color: var(--white); }
+    .fg { margin-bottom: 18px; }
+    .fg label {
+      display: block; font-size: 12px; font-weight: 600;
+      letter-spacing: .05em; text-transform: uppercase;
+      color: var(--p300); margin-bottom: 8px;
+    }
+    .fg input {
+      width: 100%; padding: 12px 16px;
+      background: rgba(139,92,246,.1); border: 1px solid rgba(139,92,246,.3);
+      border-radius: 10px; color: var(--white);
+      font-family: 'Outfit', sans-serif; font-size: 16px; outline: none;
+      transition: border-color .18s;
+    }
+    .fg input:focus { border-color: var(--p500); }
+    .fg input::placeholder { color: rgba(167,139,250,.4); }
+    .game-pill {
+      padding: 12px 16px; background: var(--goldg);
+      border: 1px solid rgba(251,191,36,.3); border-radius: 10px;
+      font-family: 'Press Start 2P', monospace; font-size: 8px; color: var(--gold); line-height: 1.7;
+    }
+    .btn-submit {
+      width: 100%; padding: 14px;
+      background: linear-gradient(135deg, var(--p700), var(--neon));
+      border: none; border-radius: 10px; color: #fff;
+      font-family: 'Outfit', sans-serif; font-size: 15px; font-weight: 700;
+      cursor: pointer; letter-spacing: .04em;
+      transition: opacity .18s, transform .1s;
+    }
+    .btn-submit:hover { opacity: .88; }
+    .btn-submit:active { transform: scale(.98); }
+
+    /* ── TOAST ── */
+    .toast {
+      position: fixed; bottom: 94px; right: 26px;
+      padding: 11px 20px; border-radius: 10px;
+      font-size: 14px; font-weight: 500; z-index: 400;
+      opacity: 0; transform: translateY(8px);
+      transition: opacity .28s, transform .28s;
+      pointer-events: none;
+    }
+    .toast.ok  { background: rgba(34,197,94,.14);  border: 1px solid rgba(34,197,94,.38);  color: #86efac; }
+    .toast.err { background: rgba(239,68,68,.14);  border: 1px solid rgba(239,68,68,.38);  color: #fca5a5; }
+    .toast.on  { opacity: 1; transform: translateY(0); }
+
+    /* ── SCROLLBAR ── */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(139,92,246,.3); border-radius: 2px; }
+
+    @media (max-width: 480px) {
+      .pod-block { width: 76px; }
+      .pod-avatar { width: 46px; height: 46px; font-size: 15px; }
+      .pod-avatar.gold { width: 56px; height: 56px; font-size: 19px; }
+      .pod-name { font-size: 11px; max-width: 76px; }
+      .hdr { padding: 32px 0 20px; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- FIREBASE SETUP BANNER (hidden once configured) -->
+  <div id="setup-banner" style="display:none;margin:16px 0;padding:18px 20px;background:rgba(251,191,36,.12);border:2px solid rgba(251,191,36,.5);border-radius:16px;font-size:13px;line-height:1.8;">
+    <div style="font-family:'Press Start 2P',monospace;font-size:9px;color:var(--gold);margin-bottom:12px;">⚠ FIREBASE NOT CONFIGURED</div>
+    <p style="color:var(--p300);margin-bottom:8px;">To enable cross-device sync, open this HTML file and fill in your Firebase config:</p>
+    <ol style="color:var(--p300);padding-left:20px;">
+      <li>Go to <strong style="color:var(--white)">console.firebase.google.com</strong> → create a free project</li>
+      <li>Firestore Database → Create database (start in test mode)</li>
+      <li>Project Settings → Your Apps → Add Web App → copy the config</li>
+      <li>Paste the values into the <code style="color:var(--gold)">FIREBASE_CONFIG</code> block near the top of the &lt;script&gt;</li>
+    </ol>
+  </div>
+
+  <!-- HEADER -->
+  <header class="hdr">
+    <h1 class="hdr-title">ARCADE<br>LEADERBOARD</h1>
+    <p class="hdr-sub">Office Weekly Competition</p>
+  </header>
+
+  <!-- HERO — always shows CURRENT week's game -->
+  <div class="hero">
+    <div class="hero-live"><div class="hero-dot"></div><span id="hero-live-txt">LIVE THIS WEEK</span></div>
+    <div class="hero-game" id="hero-game">—</div>
+    <div class="hero-meta">
+      <span class="hero-dates" id="hero-dates"></span>
+      <span class="hero-pill" id="hero-wk-key"></span>
+    </div>
+  </div>
+
+  <!-- WEEK NAV -->
+  <div class="wnav">
+    <button class="wnav-btn" id="btn-prev">← prev</button>
+    <div class="wnav-info">
+      <div class="wnav-key"  id="nav-key"></div>
+      <div class="wnav-dates" id="nav-dates"></div>
+    </div>
+    <button class="wnav-btn" id="btn-next">next →</button>
+  </div>
+  <div class="viewing-banner" id="viewing-banner">viewing past week</div>
+
+  <!-- PODIUM -->
+  <section class="podium-wrap">
+    <div class="sec-hdr"><span class="sec-title">TOP PLAYERS</span><div class="sec-line"></div></div>
+    <div class="podium" id="podium"></div>
+  </section>
+
+  <!-- FULL LEADERBOARD -->
+  <section class="lb-wrap">
+    <div class="sec-hdr"><span class="sec-title">ALL SCORES</span><div class="sec-line"></div></div>
+    <div id="lb-list"></div>
+  </section>
+
+  <!-- SCHEDULE -->
+  <section class="sched-wrap">
+    <div class="sec-hdr"><span class="sec-title">GAME SCHEDULE</span><div class="sec-line"></div></div>
+    <div class="sched-grid" id="sched-grid"></div>
+  </section>
+
+  <!-- MANAGE GAMES -->
+  <section class="manage-wrap">
+    <div class="sec-hdr"><span class="sec-title">MANAGE GAMES</span><div class="sec-line"></div></div>
+    <div class="collapse-hdr" id="collapse-hdr">
+      <span class="collapse-title">Game rotation list</span>
+      <span class="collapse-arr" id="collapse-arr">▼</span>
+    </div>
+    <div class="collapse-body" id="collapse-body">
+      <div class="games-list" id="games-list"></div>
+      <div class="add-game-row">
+        <input class="add-inp" id="inp-add-game" type="text" placeholder="Add new game title..." />
+        <button class="btn-add-g" id="btn-add-game">+ Add</button>
+      </div>
+    </div>
+  </section>
+
+</div><!-- /wrap -->
+
+<!-- FAB -->
+<button class="fab" id="fab" title="Add score">+</button>
+
+<!-- MODAL -->
+<div class="overlay hidden" id="overlay">
+  <div class="modal">
+    <button class="modal-close" id="modal-close">×</button>
+    <div class="modal-title">ADD SCORE</div>
+    <div class="fg">
+      <label>Game this week</label>
+      <div class="game-pill" id="modal-game"></div>
+    </div>
+    <div class="fg">
+      <label for="inp-name">Player name</label>
+      <input id="inp-name" type="text" placeholder="Enter your name" autocomplete="off" />
+    </div>
+    <div class="fg">
+      <label for="inp-score">Score</label>
+      <input id="inp-score" type="number" placeholder="125000" min="0" />
+    </div>
+    <button class="btn-submit" id="btn-submit">Submit Score</button>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- Firebase scripts and main app script below -->
+
+<!-- ═══════════════════════════════════════════════════
+     FIREBASE SDK  (compat build — works in plain HTML)
+════════════════════════════════════════════════════ -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+<script>
+// ══════════════════════════════════════════════
+//  🔧 PASTE YOUR FIREBASE CONFIG HERE
+//  1. Go to https://console.firebase.google.com
+//  2. Create a project (or open existing)
+//  3. Project Settings → Your Apps → Add Web App
+//  4. Copy the firebaseConfig object values below
+// ══════════════════════════════════════════════
+const FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyDP1M6HEocs5qYL_dSSRoaKCQQCVjPjV_k",
+  authDomain:        "office-arcade.firebaseapp.com",
+  projectId:         "office-arcade",
+  storageBucket:     "office-arcade.firebasestorage.app",
+  messagingSenderId: "1021209720939",
+  appId:             "1:1021209720939:web:7f29dc314c51aba3a5992e"
+};
+// ══════════════════════════════════════════════
+//  Also go to: Firestore Database → Rules
+//  and set:
+//    allow read, write: if true;
+//  (for internal office use — anyone with the
+//   link can read/write, which is fine here)
+// ══════════════════════════════════════════════
+
+// ──────────────────────────────────────────────
+// FIREBASE INIT
+// ──────────────────────────────────────────────
+const configured = FIREBASE_CONFIG.apiKey !== 'PASTE_YOUR_API_KEY';
+let db = null;
+
+if (configured) {
+  firebase.initializeApp(FIREBASE_CONFIG);
+  db = firebase.firestore();
+} else {
+  // Show setup banner
+  document.addEventListener('DOMContentLoaded', showSetupBanner);
+  // fallback so page still renders
+  setTimeout(showSetupBanner, 100);
+}
+
+function showSetupBanner() {
+  const b = document.getElementById('setup-banner');
+  if (b) b.style.display = 'block';
+}
+
+// ──────────────────────────────────────────────
+// WEEK UTILITIES  (same as before)
+// ──────────────────────────────────────────────
+function getISOWeek(date) {
+  const d = date ? new Date(date) : new Date();
+  const u = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  u.setUTCDate(u.getUTCDate() + 4 - (u.getUTCDay() || 7));
+  const ys = new Date(Date.UTC(u.getUTCFullYear(), 0, 1));
+  return { year: u.getUTCFullYear(), week: Math.ceil((((u - ys) / 86400000) + 1) / 7) };
+}
+const weekKey  = (y,w) => `${y}-W${String(w).padStart(2,'0')}`;
+const parseKey = k => { const [y,w]=k.split('-W'); return {year:+y,week:+w}; };
+function getMon(year, week) {
+  const j=new Date(year,0,4), d=j.getDay()||7;
+  return new Date(j.getTime()-(d-1)*86400000+(week-1)*7*86400000);
+}
+function weekLabel(k) {
+  const {year,week}=parseKey(k), mon=getMon(year,week), sun=new Date(mon.getTime()+6*86400000);
+  const f=d=>d.toLocaleDateString('en-AU',{day:'numeric',month:'short'});
+  return `${f(mon)} – ${f(sun)}, ${year}`;
+}
+function shiftWeek(k,d) {
+  const {year,week}=parseKey(k), m=getMon(year,week);
+  const nm=new Date(m.getTime()+d*7*86400000), r=getISOWeek(nm);
+  return weekKey(r.year,r.week);
+}
+const nowKey  = () => { const {year,week}=getISOWeek(); return weekKey(year,week); };
+const absWeek = (y,w) => (y-2020)*53+w;
+
+// ──────────────────────────────────────────────
+// DEFAULT GAMES
+// ──────────────────────────────────────────────
+const DEFAULT_GAMES = [
+  'Ms Pac-Man','Galaga','Frogger','Donkey Kong','Donkey Kong Jr',
+  'Donkey Kong 3','Galaxian','Dig Dug','Crush Roller','Mr. Do',
+  'Space Invaders','Pac-Man','1942','Gyruss','Tank Battalion',
+  'Lady Bug','Burger Time','Mappy','Centipede','Millipede',
+  'Jr Pac-Man','Pengo','Phoenix','Galaga 3','Time Pilot',
+  'Super Cobra','Hustler','Space Panic','Super Breakout','New Rally X',
+  'Arkanoid','Qix','Juno First','Xevious',"Mr. Do's Castle",
+  'Moon Cresta','Pinball Action','Scrambler','Super Pac-Man','Bomb Jack',
+  "Shao-Lin's Road",'King & Balloon','1943','Van-Van Car','Pac-Man Plus',
+  'Dig Dug 2','Amidar','Zaxxon','Pooyan','Pleiads',
+  'Gun Smoke','1943 Kai','Congo Bongo','Jumping Jack'
+];
+
+// ──────────────────────────────────────────────
+// STATE
+// ──────────────────────────────────────────────
+const CWK = nowKey();
+let viewWeek = CWK;
+let games  = [...DEFAULT_GAMES];
+let scores = [];
+let scoreUnsub = null; // Firestore real-time listener cleanup
+
+// ──────────────────────────────────────────────
+// HELPERS
+// ──────────────────────────────────────────────
+const ini = name => (name||'?').split(' ').map(w=>w[0]||'').join('').toUpperCase().slice(0,2)||'?';
+function sfx(n) { if(n>10&&n<20)return 'th'; const r=n%10; return r===1?'st':r===2?'nd':r===3?'rd':'th'; }
+
+function gameFor(k) {
+  if(!games.length) return '—';
+  const {year,week}=parseKey(k);
+  return games[Math.abs(absWeek(year,week)) % games.length];
+}
+
+// ──────────────────────────────────────────────
+// TOAST
+// ──────────────────────────────────────────────
+let toastTmr;
+function toast(msg, err=false) {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className='toast '+(err?'err':'ok')+' on';
+  clearTimeout(toastTmr);
+  toastTmr=setTimeout(()=>{ t.className='toast'; },3000);
+}
+
+// ──────────────────────────────────────────────
+// FIRESTORE — GAMES
+// ──────────────────────────────────────────────
+async function loadGames() {
+  if (!db) return;
+  try {
+    const snap = await db.collection('config').doc('games').get();
+    if (snap.exists && snap.data().list?.length) {
+      games = snap.data().list;
+    } else {
+      // First run — seed defaults + Chris's win
+      games = [...DEFAULT_GAMES];
+      await db.collection('config').doc('games').set({ list: games });
+      // Seed Chris's last-week win
+      const lastWk = shiftWeek(CWK, -1);
+      const lsnap  = await db.collection('scores').doc(lastWk).get();
+      if (!lsnap.exists) {
+        await db.collection('scores').doc(lastWk).set({
+          entries: [{ name: 'Chris', score: 89400, ts: Date.now() }]
+        });
+      }
+    }
+  } catch(e) { console.error('loadGames:', e); }
+}
+
+async function saveGames() {
+  if (!db) return;
+  try { await db.collection('config').doc('games').set({ list: games }); }
+  catch(e) { toast('Error saving games list.',true); }
+}
+
+// ──────────────────────────────────────────────
+// FIRESTORE — SCORES  (real-time listener)
+// ──────────────────────────────────────────────
+function subscribeScores(weekK) {
+  // Unsubscribe previous listener
+  if (scoreUnsub) { scoreUnsub(); scoreUnsub = null; }
+  if (!db) return;
+
+  setLoading(true);
+  scoreUnsub = db.collection('scores').doc(weekK)
+    .onSnapshot(snap => {
+      scores = snap.exists ? (snap.data().entries || []) : [];
+      scores.sort((a,b) => b.score - a.score);
+      setLoading(false);
+      renderPodium();
+      renderList();
+    }, err => {
+      console.error('scores listener:', err);
+      setLoading(false);
+    });
+}
+
+async function saveScores(weekK) {
+  if (!db) return;
+  try {
+    await db.collection('scores').doc(weekK).set({ entries: scores });
+  } catch(e) { toast('Error saving score.',true); console.error(e); }
+}
+
+// ──────────────────────────────────────────────
+// LOADING STATE
+// ──────────────────────────────────────────────
+function setLoading(on) {
+  const el = document.getElementById('lb-list');
+  if (on) el.innerHTML = `<p style="text-align:center;padding:2rem;color:var(--p400);font-family:'Press Start 2P',monospace;font-size:9px;letter-spacing:.08em;">LOADING...</p>`;
+}
+
+// ──────────────────────────────────────────────
+// RENDER
+// ──────────────────────────────────────────────
+function renderHero() {
+  document.getElementById('hero-game').textContent   = gameFor(CWK);
+  document.getElementById('hero-dates').textContent  = weekLabel(CWK);
+  document.getElementById('hero-wk-key').textContent = CWK;
+  document.getElementById('modal-game').textContent  = gameFor(CWK);
+}
+
+function renderNav() {
+  document.getElementById('nav-key').textContent   = viewWeek;
+  document.getElementById('nav-dates').textContent = weekLabel(viewWeek);
+  document.getElementById('btn-next').disabled     = (viewWeek === CWK);
+  document.getElementById('viewing-banner').classList.toggle('show', viewWeek !== CWK);
+}
+
+function renderPodium() {
+  const top3  = scores.slice(0,3);
+  const order = [1,0,2];
+  const cls   = ['silver','gold','bronze'];
+  const lbl   = ['2','1','3'];
+
+  document.getElementById('podium').innerHTML = order.map((si,di) => {
+    const s  = top3[si];
+    const c  = cls[di];
+    const ht = di===1?'80px':di===0?'60px':'44px';
+    if (!s) return `
+      <div class="pod-slot">
+        <div class="pod-empty">${lbl[di]}${sfx(+lbl[di])}</div>
+        <div class="pod-block ${c}" style="height:${ht};opacity:.3;">${lbl[di]}</div>
+      </div>`;
+    return `
+      <div class="pod-slot">
+        <div class="pod-card">
+          ${di===1?'<span class="pod-crown">👑</span>':''}
+          <div class="pod-avatar ${c}">${ini(s.name)}</div>
+          <div class="pod-name">${s.name}</div>
+          <div class="pod-score">${s.score.toLocaleString()}</div>
+          <button class="pod-del" data-idx="${si}" title="Remove">×</button>
+        </div>
+        <div class="pod-block ${c}" style="height:${ht};">${lbl[di]}</div>
+      </div>`;
+  }).join('');
+
+  document.querySelectorAll('.pod-del').forEach(b =>
+    b.addEventListener('click', async e => {
+      e.stopPropagation();
+      scores.splice(+b.dataset.idx, 1);
+      await saveScores(viewWeek);
+      // listener will re-render automatically
+    })
+  );
+}
+
+function renderList() {
+  const el = document.getElementById('lb-list');
+  if (!scores.length) {
+    el.innerHTML = `<div class="empty-state">
+      <div class="empty-pixel">INSERT COIN</div>
+      <p style="font-size:14px;opacity:.7;">No scores this week yet.<br>Hit + to be first!</p>
+    </div>`; return;
+  }
+  el.innerHTML = scores.map((s,i) => `
+    <div class="score-row">
+      <span class="rank-lbl">${String(i+1).padStart(2,'0')}</span>
+      <div class="init-circle">${ini(s.name)}</div>
+      <span class="p-name">${s.name}</span>
+      <span class="p-score">${s.score.toLocaleString()}</span>
+      <button class="btn-del" data-idx="${i}" title="Remove">×</button>
+    </div>`).join('');
+
+  document.querySelectorAll('.btn-del').forEach(b =>
+    b.addEventListener('click', async () => {
+      scores.splice(+b.dataset.idx, 1);
+      await saveScores(viewWeek);
+    })
+  );
+}
+
+function renderSchedule() {
+  document.getElementById('sched-grid').innerHTML = [-1,0,1,2,3].map(d => {
+    const k      = shiftWeek(CWK,d);
+    const isCur  = d===0;
+    const isView = k===viewWeek && !isCur;
+    const labels = {'-1':'Last week','0':'This week ↓','1':'Next week','2':'In 2 weeks','3':'In 3 weeks'};
+    return `
+      <div class="sched-card${isCur?' now':''}" style="${isView?'border-color:rgba(77,216,248,.7);':''}">
+        <div class="sched-label">${labels[d]}</div>
+        <div class="sched-wk">${k}</div>
+        <div class="sched-game">${gameFor(k)}</div>
+      </div>`;
+  }).join('');
+}
+
+function renderGamesList() {
+  const {year,week}=parseKey(CWK);
+  const curIdx = games.length>0 ? Math.abs(absWeek(year,week))%games.length : -1;
+  const el = document.getElementById('games-list');
+  if (!games.length) {
+    el.innerHTML=`<p style="font-size:13px;color:var(--p400);padding:8px 4px;">No games yet.</p>`;
+    return;
+  }
+  el.innerHTML = games.map((g,i) => `
+    <div class="g-row">
+      <span class="g-num">${String(i+1).padStart(2,'0')}</span>
+      <span class="g-name">${g}</span>
+      ${i===curIdx?'<span class="g-badge">now</span>':''}
+      <div class="g-btns">
+        <button class="g-up" data-i="${i}">↑</button>
+        <button class="g-dn" data-i="${i}">↓</button>
+        <button class="g-rm" data-i="${i}">×</button>
+      </div>
+    </div>`).join('');
+
+  document.querySelectorAll('.g-up').forEach(b => b.addEventListener('click', async () => {
+    const i=+b.dataset.i; if(i>0){[games[i],games[i-1]]=[games[i-1],games[i]];await saveGames();renderAll();}
+  }));
+  document.querySelectorAll('.g-dn').forEach(b => b.addEventListener('click', async () => {
+    const i=+b.dataset.i; if(i<games.length-1){[games[i],games[i+1]]=[games[i+1],games[i]];await saveGames();renderAll();}
+  }));
+  document.querySelectorAll('.g-rm').forEach(b => b.addEventListener('click', async () => {
+    games.splice(+b.dataset.i,1); await saveGames(); renderAll();
+  }));
+}
+
+function renderAll() {
+  renderHero(); renderNav();
+  renderSchedule(); renderGamesList();
+  // podium + list are driven by the real-time score listener
+}
+
+// ──────────────────────────────────────────────
+// EVENTS
+// ──────────────────────────────────────────────
+document.getElementById('btn-prev').addEventListener('click', () => {
+  viewWeek = shiftWeek(viewWeek,-1);
+  renderNav(); renderSchedule();
+  subscribeScores(viewWeek);
+});
+document.getElementById('btn-next').addEventListener('click', () => {
+  if(viewWeek!==CWK){ viewWeek=shiftWeek(viewWeek,1); renderNav(); renderSchedule(); subscribeScores(viewWeek); }
+});
+
+document.getElementById('fab').addEventListener('click', () => {
+  if(viewWeek!==CWK){ toast('Navigate to the current week to add scores.',true); return; }
+  document.getElementById('overlay').classList.remove('hidden');
+  document.getElementById('inp-name').focus();
+});
+document.getElementById('modal-close').addEventListener('click', () =>
+  document.getElementById('overlay').classList.add('hidden')
+);
+document.getElementById('overlay').addEventListener('click', e => {
+  if(e.target===document.getElementById('overlay'))
+    document.getElementById('overlay').classList.add('hidden');
+});
+
+document.getElementById('btn-submit').addEventListener('click', async () => {
+  const name  = document.getElementById('inp-name').value.trim();
+  const score = parseInt(document.getElementById('inp-score').value);
+  if(!name)               { toast('Please enter your name.',true);        return; }
+  if(isNaN(score)||score<0){ toast('Please enter a valid score.',true);   return; }
+
+  document.getElementById('btn-submit').textContent = 'Saving...';
+  document.getElementById('btn-submit').disabled    = true;
+
+  scores.push({name, score, ts: Date.now()});
+  scores.sort((a,b) => b.score - a.score);
+  await saveScores(viewWeek);
+
+  document.getElementById('btn-submit').textContent = 'Submit Score';
+  document.getElementById('btn-submit').disabled    = false;
+  document.getElementById('inp-name').value  = '';
+  document.getElementById('inp-score').value = '';
+  document.getElementById('overlay').classList.add('hidden');
+  toast(`Score added for ${name}!`);
+  // listener re-renders automatically
+});
+document.getElementById('inp-score').addEventListener('keydown', e => {
+  if(e.key==='Enter') document.getElementById('btn-submit').click();
+});
+document.getElementById('inp-name').addEventListener('keydown', e => {
+  if(e.key==='Enter') document.getElementById('inp-score').focus();
+});
+
+document.getElementById('collapse-hdr').addEventListener('click', () => {
+  document.getElementById('collapse-body').classList.toggle('open');
+  document.getElementById('collapse-arr').classList.toggle('open');
+});
+
+document.getElementById('btn-add-game').addEventListener('click', async () => {
+  const v=document.getElementById('inp-add-game').value.trim();
+  if(!v) return;
+  if(games.includes(v)){ toast('Already in list.',true); return; }
+  games.push(v);
+  document.getElementById('inp-add-game').value='';
+  await saveGames(); renderAll();
+});
+document.getElementById('inp-add-game').addEventListener('keydown', e => {
+  if(e.key==='Enter') document.getElementById('btn-add-game').click();
+});
+
+// ──────────────────────────────────────────────
+// INIT
+// ──────────────────────────────────────────────
+async function init() {
+  await loadGames();
+  renderAll();
+  subscribeScores(viewWeek);
+}
+
+init();
+</script>
+</body>
+</html>
